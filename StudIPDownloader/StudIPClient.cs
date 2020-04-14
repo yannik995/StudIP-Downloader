@@ -28,7 +28,7 @@ namespace StudIPDownloader
             this._password = password;
             login();
         }*/
-        public StudIPClient(Cookie cookie, string BASE)
+        public StudIPClient(string BASE, Cookie cookie)
         {
             this.BASE = BASE;
             this.API_BASE = BASE + "api.php/";

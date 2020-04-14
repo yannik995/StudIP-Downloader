@@ -9,10 +9,12 @@ namespace StudIPDownloader
     class Program
     {
         private const string PFAD_DEFAULT = @"C:\StudIP-Sync\";
+        static string pfad = PFAD_DEFAULT;
+        static string SessionCookie = "";
+        static string StudIpURL = "";
         static void Main(string[] args)
         {
-            string pfad = PFAD_DEFAULT;
-            string SessionCookie = "";
+
             try
             {
                 using (StreamReader sr = new StreamReader("config.ini"))
@@ -28,6 +30,10 @@ namespace StudIPDownloader
                         {
                             pfad = line.Split('|')[1];
                         }
+                        if (line.StartsWith("StudIP|"))
+                        {
+                            StudIpURL = line.Split('|')[1];
+                        }
                     }
                 }
             }
@@ -36,7 +42,7 @@ namespace StudIPDownloader
                 Console.WriteLine("config.ini konnte nicht gelesen werden.");
             }
 
-            StudIPClient client = new StudIPClient(getCookie(SessionCookie), "https://elearning.uni-oldenburg.de/");
+            StudIPClient client = new StudIPClient(getStudIP(), getCookie());
             
             if(pfad == PFAD_DEFAULT)
             {
@@ -51,6 +57,7 @@ namespace StudIPDownloader
             {
                 sw.WriteLine("Cookie|" + SessionCookie);
                 sw.WriteLine("Pfad|" + pfad);
+                sw.WriteLine("StudIP|" + StudIpURL);
             }
             try 
             { 
@@ -61,18 +68,34 @@ namespace StudIPDownloader
                 if (webException.Message.Contains("(401) Unauthorized"))
                 {
                     client.setWebClient(getCookie());
-                    client.syncFiles(pfad);
+                    try
+                    {
+                        client.syncFiles(pfad);
+                    }
+                    catch (WebException ex)
+                    {
+                        Console.WriteLine("Fehler: " + ex.Message);
+                    }
                 }
             }
         }
 
-        static Cookie getCookie(string SessionCookie = "")
+        static Cookie getCookie()
         {
             if (SessionCookie == "")
             {
                 SessionCookie = ReadLine("Seminar_Session Cookie aus dem Browser: ");
             }
             return new Cookie("Seminar_Session", SessionCookie, "/", "elearning.uni-oldenburg.de");
+        }
+
+        static string getStudIP()
+        {
+            if (StudIpURL == "")
+            {
+                StudIpURL = ReadLine("StudIP URL (https://elearning.uni-oldenburg.de/): ");
+            }
+            return StudIpURL;
         }
 
         static string ReadLine(string outp)
