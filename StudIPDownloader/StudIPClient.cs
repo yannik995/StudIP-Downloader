@@ -150,7 +150,6 @@ namespace StudIPDownloader
 
         void syncSubfolder(string localPath, string parent, string path = "")
         {
-           // Console.WriteLine(localPath + path + " " + Directory.Exists(localPath + path));
             if(!Directory.Exists(localPath + path))
             {
                 Directory.CreateDirectory(localPath + path);
@@ -215,7 +214,6 @@ namespace StudIPDownloader
         string RemoveInvalidChars(string filename)
         {
             return string.Concat(filename.Trim().Split(Path.GetInvalidFileNameChars()));
-            //return string.Join("_", filename.Split(Path.GetInvalidFileNameChars()));
         }
 
         string ReplaceInvalidChars(string filename, string replace = "_")
