@@ -39,7 +39,7 @@ namespace StudIPDownloader
             }
             catch (FileNotFoundException ex)
             {
-                Console.WriteLine("config.ini konnte nicht gelesen werden.");
+                Console.WriteLine("config.ini konnte nicht gelesen werden: " + ex.Message);
             }
 
             StudIPClient client = new StudIPClient(getStudIP(), getCookie());
