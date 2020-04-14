@@ -17,3 +17,5 @@ https://github.com/yannik995/StudIP-Downloader/releases
 Die Einstellungen werden gespeichert und beim nächsten Start muss nur ggf. der Wert des Cookies neu eingetragen werden.
 
 Es werden immer nur die neuen oder geänderten Dateien heruntergeladen.
+
+![.NET Core](https://github.com/yannik995/StudIP-Downloader/workflows/.NET%20Core/badge.svg)
