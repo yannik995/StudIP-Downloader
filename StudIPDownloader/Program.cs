@@ -65,9 +65,9 @@ namespace StudIPDownloader
             }
             catch (WebException webException)
             {
-                if (webException.Message.Contains("(401) Unauthorized"))
+                if (webException.Message.Contains("Unauthorized"))
                 {
-                    client.setWebClient(getCookie());
+                    client.setWebClient(getCookie(true));
                     try
                     {
                         client.syncFiles(pfad);
@@ -80,13 +80,13 @@ namespace StudIPDownloader
             }
         }
 
-        static Cookie getCookie()
+        static Cookie getCookie(bool forceNew = false)
         {
-            if (SessionCookie == "")
+            if (SessionCookie == "" || forceNew)
             {
                 SessionCookie = ReadLine("Seminar_Session Cookie aus dem Browser: ");
             }
-            return new Cookie("Seminar_Session", SessionCookie, "/", "elearning.uni-oldenburg.de");
+            return new Cookie("Seminar_Session", SessionCookie, "/", new Uri(StudIpURL).Host);
         }
 
         static string getStudIP()
