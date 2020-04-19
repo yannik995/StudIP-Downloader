@@ -43,8 +43,10 @@ namespace StudIPDownloader
             }
 
             StudIPClient client = new StudIPClient(getStudIP(), getCookie());
-            
-            if(pfad == PFAD_DEFAULT)
+
+            //StudIPClient client = new StudIPClient(getStudIP(), ReadLine("Username: "), ReadLine("Passwort: "));
+
+            if (pfad == PFAD_DEFAULT)
             {
                 pfad = ReadLine("Lokaler Pfad (" + pfad + "): ");
                 if (pfad == "")

@@ -10,8 +10,8 @@ namespace StudIPDownloader
 {
     class StudIPClient
     {
-        /*string _user;
-        string _password;*/
+        string _user = null;
+        string _password = null;
         WebClient wc;
         CookieContainer cc;
         string BASE = "https://elearning.uni-oldenburg.de/";
@@ -21,52 +21,59 @@ namespace StudIPDownloader
         {
             setWebClient(cookie);
         }
-        /*public StudIPClient(string user, string password)
+        public StudIPClient(string user, string password)
         {
             setWebClient();
             this._user = user;
             this._password = password;
             login();
-        }*/
+        }
         public StudIPClient(string BASE, Cookie cookie)
         {
-            this.BASE = BASE;
-            this.API_BASE = BASE + "api.php/";
+            setBase(BASE);
             setWebClient(cookie);
         }
-        /*public StudIPClient(string user, string password, string BASE)
+        public StudIPClient(string BASE, string user, string password)
         {
-            this.BASE = BASE;
-            this.API_BASE = BASE + "api.php/";
-            setWebClient();
+            setBase(BASE);
+            setWebClient(null);
             this._user = user;
             this._password = password;
             login();
-        }*/
+        }
 
-        public void setWebClient(Cookie cookie)
+        public void setBase(string BASE)
+        {
+            this.BASE = BASE;
+            this.API_BASE = BASE + "api.php/";
+        }
+
+        public void setWebClient(Cookie cookie = null)
         {
             cc = new CookieContainer();
-            cc.Add(cookie);
+            if(cookie != null)
+            {
+                cc.Add(cookie);
+            }
             wc = new WebClientEx(cc);
+            wc.DownloadProgressChanged += new DownloadProgressChangedEventHandler(DownloadProgressCallback);
         }
 
         public bool login()
         {
+            wc.DownloadString(BASE); // Notwendige Cookies setzen (Seminar_Session)
             string userSeite = wc.DownloadString(API_BASE + "discovery");
 
-            if (userSeite.StartsWith("<!DOCTYPE html>"))
+            if (userSeite.StartsWith("<!DOCTYPE html>") && this._user != null && this._password != null)
             {
-                return false;
                 //Login nötig
-                /*
-                wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
+                wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded; charset=UTF-8";
                 string req = "login_ticket=" + 
-                    WebUtility.UrlEncode(GetBetween(userSeite, "login_ticket\" value=\"", "\">")) + "&security_token=" + 
-                    WebUtility.UrlEncode(GetBetween(userSeite, "security_token\" value=\"", "\">")) + "&loginname=" + 
+                    (GetBetween(userSeite, "login_ticket\" value=\"", "\">")) + "&security_token=" + 
+                    (GetBetween(userSeite, "security_token\" value=\"", "\">")) + "&loginname=" + 
                     _user + "&password=" + 
                     _password +
-                    "&source=https%3A%2F%2Felearning.uni-oldenburg.de%2Findex.php%3Flogout%3Dtrue%26set_language%3D%26cancel_login%3D1&target=https%3A%2F%2Felearning.uni-oldenburg.de%2Findex.php%3Flogout%3Dtrue%26set_language%3D";
+                    "&source=https%3A%2F%2Felearning.uni-oldenburg.de%2F%3Fcancel_login%3D1&target=https%3A%2F%2Felearning.uni-oldenburg.de%2F";
 
                 string HtmlResult = wc.UploadString(BASE + "plugins.php/uollayoutplugin/login?cancel_login=1",
                    req);
@@ -78,8 +85,8 @@ namespace StudIPDownloader
                 if (userSeite.StartsWith("<!DOCTYPE html>"))
                 {
                     Console.WriteLine("Login fehlerhaft");
-                    
-                }*/
+                    throw ( new UnauthorizedAccessException("Login fehlerhaft"));
+                }
             }
             //Bereits eingeloggt
             return true;
@@ -99,15 +106,6 @@ namespace StudIPDownloader
                 }
                 throw (webException);
             }
-        }
-
-        string GetBetween(string source, string start, string end)
-        {
-            var startPos = source.IndexOf(start, StringComparison.Ordinal);
-            if (startPos < 0) return null;
-            startPos += start.Length;
-            var endPos = source.IndexOf(end, startPos, StringComparison.Ordinal);
-            return endPos < 0 ? null : source.Substring(startPos, endPos - startPos - 1);
         }
 
         public string getUserID()
@@ -154,36 +152,44 @@ namespace StudIPDownloader
             {
                 Directory.CreateDirectory(localPath + path);
             }
- 
-            dynamic folders = JsonConvert.DeserializeObject<dynamic>(getAPI("folder/" + parent));
 
-            foreach (var topFolder in folders.subfolders)
+            try
             {
-                string folder_id = (string)topFolder.SelectToken("id");
-                string name = (string)topFolder.SelectToken("name");
-                string folder_type = (string)topFolder.SelectToken("folder_type");
 
-                if (!String.IsNullOrEmpty(name))
+                dynamic folders = JsonConvert.DeserializeObject<dynamic>(getAPI("folder/" + parent));
+
+                foreach (var topFolder in folders.subfolders)
                 {
-                    name = RemoveInvalidChars(name);
-                    Console.WriteLine("->" + folder_id + " (" + name + ")");
-                    syncSubfolder(localPath,folder_id, path + Path.DirectorySeparatorChar + name);
+                    string folder_id = (string)topFolder.SelectToken("id");
+                    string name = (string)topFolder.SelectToken("name");
+                    string folder_type = (string)topFolder.SelectToken("folder_type");
+
+                    if (!String.IsNullOrEmpty(name))
+                    {
+                        name = RemoveInvalidChars(name);
+                        Console.WriteLine("->" + folder_id + " (" + name + ")");
+                        syncSubfolder(localPath,folder_id, path + Path.DirectorySeparatorChar + name);
+                    }
+                }
+                foreach (var files in folders.file_refs)
+                {
+                    string file_id = (string)files.SelectToken("id");
+                    string name = (string)files.SelectToken("name");
+                    int size = (int)files.SelectToken("size");
+                    int chdate = (int)files.SelectToken("chdate");
+                    bool is_downloadable = (bool)files.SelectToken("is_downloadable");
+
+                    if (is_downloadable && !String.IsNullOrEmpty(name))
+                    {
+                        name = RemoveInvalidChars(name);
+                        Console.WriteLine(path + Path.DirectorySeparatorChar + name + " (" + file_id + ")");
+                        downloadFile(localPath, path, new Datei(file_id, name, size, chdate));
+                    }
                 }
             }
-            foreach (var files in folders.file_refs)
+            catch (Exception ex)
             {
-                string file_id = (string)files.SelectToken("id");
-                string name = (string)files.SelectToken("name");
-                int size = (int)files.SelectToken("size");
-                int chdate = (int)files.SelectToken("chdate");
-                bool is_downloadable = (bool)files.SelectToken("is_downloadable");
-
-                if (is_downloadable && !String.IsNullOrEmpty(name))
-                {
-                    name = RemoveInvalidChars(name);
-                    Console.WriteLine(path + name + " (" + file_id + ")");
-                    downloadFile(localPath, path, new Datei(file_id, name, size, chdate));
-                }
+                Console.WriteLine("Fehler beim Downloaden des Verzeichnises: " + parent + "\r\n" + ex.Message);
             }
         }
 
@@ -193,8 +199,34 @@ namespace StudIPDownloader
 
             if(!checkFile(pfad, datei))
             {
-                wc.DownloadFile(API_BASE + "file/" + datei.id + "/download", pfad);
+                try
+                {
+                    
+                    wc.DownloadFile(API_BASE + "file/" + datei.id + "/download", pfad);
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        //API wirft Fehler bei Dateien > 500MB, nutze dann WEB UI 
+                        wc.DownloadFile(BASE + "sendfile.php?force_download=1&type=0&file_id=" + datei.id , pfad);
+                    }
+                    catch (Exception ex1)
+                    {
+                        Console.WriteLine("Fehler beim Downloaden der Datei " + datei.filename + "(" + datei.id + ")\r\n" + ex.Message);
+                    }
+                }
             }
+        }
+
+        private static void DownloadProgressCallback(object sender, DownloadProgressChangedEventArgs e)
+        {
+            // Displays the operation identifier, and the transfer progress.
+            Console.WriteLine("{0}    downloaded {1} of {2} bytes. {3} % complete...",
+                (string)e.UserState,
+                e.BytesReceived,
+                e.TotalBytesToReceive,
+                e.ProgressPercentage);
         }
 
         bool checkFile(string pfad, Datei datei)
@@ -209,6 +241,22 @@ namespace StudIPDownloader
                 return false;
             }
             return true;
+        }
+
+//Helper 
+        string GetBetween(string strSource, string strStart, string strEnd)
+        {
+            int Start, End;
+            if (strSource.Contains(strStart) && strSource.Contains(strEnd))
+            {
+                Start = strSource.IndexOf(strStart, 0) + strStart.Length;
+                End = strSource.IndexOf(strEnd, Start);
+                return strSource.Substring(Start, End - Start);
+            }
+            else
+            {
+                return "";
+            }
         }
 
         string RemoveInvalidChars(string filename)
