@@ -167,7 +167,7 @@ namespace StudIPDownloader
                     if (!String.IsNullOrEmpty(name))
                     {
                         name = RemoveInvalidChars(name);
-                        Console.WriteLine("->" + folder_id + " (" + name + ")");
+                        Console.WriteLine("->" + name + " (" + folder_id + ")");
                         syncSubfolder(localPath,folder_id, path + Path.DirectorySeparatorChar + name);
                     }
                 }
@@ -182,7 +182,6 @@ namespace StudIPDownloader
                     if (is_downloadable && !String.IsNullOrEmpty(name))
                     {
                         name = RemoveInvalidChars(name);
-                        Console.WriteLine(path + Path.DirectorySeparatorChar + name + " (" + file_id + ")");
                         downloadFile(localPath, path, new Datei(file_id, name, size, chdate));
                     }
                 }
@@ -199,6 +198,7 @@ namespace StudIPDownloader
 
             if(!checkFile(pfad, datei))
             {
+                Console.WriteLine(path + Path.DirectorySeparatorChar + datei.filename + " (" + datei.id + ")");
                 try
                 {
                     
