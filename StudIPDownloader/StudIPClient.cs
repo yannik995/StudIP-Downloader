@@ -64,28 +64,34 @@ namespace StudIPDownloader
             wc.DownloadString(BASE); // Notwendige Cookies setzen (Seminar_Session)
             string userSeite = wc.DownloadString(API_BASE + "discovery");
 
-            if (userSeite.StartsWith("<!DOCTYPE html>") && this._user != null && this._password != null)
+            if (userSeite.StartsWith("<!DOCTYPE html>"))
             {
                 //Login nötig
-                wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded; charset=UTF-8";
-                string req = "login_ticket=" + 
-                    (GetBetween(userSeite, "login_ticket\" value=\"", "\">")) + "&security_token=" + 
-                    (GetBetween(userSeite, "security_token\" value=\"", "\">")) + "&loginname=" + 
-                    _user + "&password=" + 
-                    _password +
-                    "&source=https%3A%2F%2Felearning.uni-oldenburg.de%2F%3Fcancel_login%3D1&target=https%3A%2F%2Felearning.uni-oldenburg.de%2F";
+                if(this._user != null && this._password != null) { 
+                    wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded; charset=UTF-8";
+                    string req = "login_ticket=" + 
+                        (GetBetween(userSeite, "login_ticket\" value=\"", "\">")) + "&security_token=" + 
+                        (GetBetween(userSeite, "security_token\" value=\"", "\">")) + "&loginname=" + 
+                        _user + "&password=" + 
+                        _password +
+                        "&source=https%3A%2F%2Felearning.uni-oldenburg.de%2F%3Fcancel_login%3D1&target=https%3A%2F%2Felearning.uni-oldenburg.de%2F";
 
-                string HtmlResult = wc.UploadString(BASE + "plugins.php/uollayoutplugin/login?cancel_login=1",
-                   req);
+                    string HtmlResult = wc.UploadString(BASE + "plugins.php/uollayoutplugin/login?cancel_login=1",
+                       req);
 
-                Console.WriteLine(HtmlResult);
+                    Console.WriteLine(HtmlResult);
 
-                userSeite = wc.DownloadString(API_BASE + "discovery");
+                    userSeite = wc.DownloadString(API_BASE + "discovery");
 
-                if (userSeite.StartsWith("<!DOCTYPE html>"))
+                    if (userSeite.StartsWith("<!DOCTYPE html>"))
+                    {
+                        Console.WriteLine("Login fehlerhaft");
+                        throw ( new WebException("Unauthorized"));
+                    }
+                }
+                else
                 {
-                    Console.WriteLine("Login fehlerhaft");
-                    throw ( new UnauthorizedAccessException("Login fehlerhaft"));
+                    throw (new WebException("Unauthorized"));
                 }
             }
             //Bereits eingeloggt
@@ -96,7 +102,14 @@ namespace StudIPDownloader
         {
             try
             {
-                return wc.DownloadString(API_BASE + path);
+                string dl = wc.DownloadString(API_BASE + path);
+                if (dl.StartsWith("<")) //Wenn kein JSON
+                {
+                    if (login()) { 
+                        dl = wc.DownloadString(API_BASE + path);
+                    }
+                }
+                return dl;
             }
             catch (WebException webException)
             {
@@ -115,11 +128,17 @@ namespace StudIPDownloader
             return (string)user.SelectToken("user_id");
         }
 
+        Dictionary<string, string> SemesterDict = new Dictionary<string, string>();
         public string getSemesterToken(string semesterID)
         {
-            string api = getAPI("semester/" + semesterID);
-            JToken semester = JObject.Parse(api);
-            return (string)semester.SelectToken("token");
+            if (!SemesterDict.ContainsKey(semesterID)) //Mit Dictionary API Requests sparen  
+            {
+                string api = getAPI("semester/" + semesterID);
+                JToken semester = JObject.Parse(api);
+                SemesterDict[semesterID] = (string)semester.SelectToken("token");
+            }
+            return SemesterDict[semesterID];
+
         }
 
         public void syncFiles(string localPath)

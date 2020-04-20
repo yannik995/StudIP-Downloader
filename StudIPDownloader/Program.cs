@@ -55,12 +55,6 @@ namespace StudIPDownloader
                 }
             }
 
-            using (StreamWriter sw = new StreamWriter("config.ini", false))
-            {
-                sw.WriteLine("Cookie|" + SessionCookie);
-                sw.WriteLine("Pfad|" + pfad);
-                sw.WriteLine("StudIP|" + StudIpURL);
-            }
             try 
             { 
                 client.syncFiles(pfad);
@@ -79,6 +73,17 @@ namespace StudIPDownloader
                         Console.WriteLine("Fehler: " + ex.Message);
                     }
                 }
+                else
+                {
+                    Console.WriteLine("Fehler: " + webException.Message);
+                }
+            }
+
+            using (StreamWriter sw = new StreamWriter("config.ini", false))
+            {
+                sw.WriteLine("Cookie|" + SessionCookie);
+                sw.WriteLine("Pfad|" + pfad);
+                sw.WriteLine("StudIP|" + StudIpURL);
             }
         }
 
