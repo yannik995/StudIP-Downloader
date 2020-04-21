@@ -163,7 +163,7 @@ namespace StudIPDownloader
             dynamic courses = JsonConvert.DeserializeObject<dynamic>(getAPI("user/" + getUserID() + "/courses?limit=1000"));
             foreach (var course in courses.collection)
             {
-                Console.WriteLine(course.First.title + " (" + course.First.course_id + ")");
+                Console.Write(course.First.title + " (" + course.First.course_id + ")");
                 string semesterName = "Allgemein";
                 Semester semester = new Semester(false);
                 if (course.First.start_semester != null)
@@ -175,6 +175,8 @@ namespace StudIPDownloader
 
                 if (!_express || (_express && semester.active ))
                 {
+                    Console.WriteLine();
+
                     if (!Directory.Exists(localPath + Path.DirectorySeparatorChar + semesterName))
                     {
                         Directory.CreateDirectory(localPath + Path.DirectorySeparatorChar + semesterName);
@@ -183,6 +185,11 @@ namespace StudIPDownloader
                     dynamic folders = JsonConvert.DeserializeObject<dynamic>(getAPI("course/" + course.First.course_id + "/top_folder"));
                     syncSubfolder(localPath + Path.DirectorySeparatorChar + semesterName, (string)folders.SelectToken("id"), Path.DirectorySeparatorChar + RemoveInvalidChars((string)course.First.title));
                 }
+                else
+                {
+                    Console.WriteLine(" -> Skip");
+                }
+
             }
         }
 
