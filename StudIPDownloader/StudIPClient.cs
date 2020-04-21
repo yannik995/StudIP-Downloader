@@ -67,14 +67,19 @@ namespace StudIPDownloader
             if (userSeite.StartsWith("<!DOCTYPE html>"))
             {
                 //Login nötig
-                if(this._user != null && this._password != null) { 
+                if(this._user != null && this._password != null) {
+
+                    string login = wc.DownloadString(BASE); // Notwendige Cookies setzen (Seminar_Session)
+
                     wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded; charset=UTF-8";
-                    string req = "login_ticket=" + 
-                        (GetBetween(userSeite, "login_ticket\" value=\"", "\">")) + "&security_token=" + 
-                        (GetBetween(userSeite, "security_token\" value=\"", "\">")) + "&loginname=" + 
-                        _user + "&password=" + 
-                        _password +
-                        "&source=https%3A%2F%2Felearning.uni-oldenburg.de%2F%3Fcancel_login%3D1&target=https%3A%2F%2Felearning.uni-oldenburg.de%2F";
+                    wc.Encoding = Encoding.UTF8;
+                    string req = "login_ticket=" + WebUtility.UrlEncode(GetBetween(login, "login_ticket\" value=\"", "\">")) +
+                        "&security_token=" + WebUtility.UrlEncode(GetBetween(login, "security_token\" value=\"", "\">")) +
+                        "&loginname=" + _user +
+                        "&password=" + _password +
+                        "&source=" + WebUtility.UrlEncode(GetBetween(login, "source\" value=\"", "\">")) + 
+                        "&target=" + WebUtility.UrlEncode(GetBetween(login, "target\" value=\"", "\">"));
+
 
                     string HtmlResult = wc.UploadString(BASE + "plugins.php/uollayoutplugin/login?cancel_login=1",
                        req);
@@ -82,7 +87,8 @@ namespace StudIPDownloader
                     Console.WriteLine(HtmlResult);
 
                     userSeite = wc.DownloadString(API_BASE + "discovery");
-
+                    Console.WriteLine();
+                    Console.WriteLine(userSeite);
                     if (userSeite.StartsWith("<!DOCTYPE html>"))
                     {
                         Console.WriteLine("Login fehlerhaft");
