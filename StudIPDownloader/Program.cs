@@ -12,6 +12,7 @@ namespace StudIPDownloader
         static string pfad = PFAD_DEFAULT;
         static string SessionCookie = "";
         static string StudIpURL = "";
+        static bool express = false;
         static void Main(string[] args)
         {
 
@@ -34,6 +35,10 @@ namespace StudIPDownloader
                         {
                             StudIpURL = line.Split('|')[1];
                         }
+                        if (line.StartsWith("express|"))
+                        {
+                            express = bool.Parse(line.Split('|')[1]);
+                        }
                     }
                 }
             }
@@ -42,9 +47,9 @@ namespace StudIPDownloader
                 Console.WriteLine("config.ini konnte nicht gelesen werden: " + ex.Message);
             }
 
-            StudIPClient client = new StudIPClient(getStudIP(), getCookie());
+            StudIPClient client = new StudIPClient(getStudIP(), getCookie(), express);
 
-            //StudIPClient client = new StudIPClient(getStudIP(), ReadLine("Username: "), ReadLine("Passwort: "));
+            //StudIPClient client = new StudIPClient(getStudIP(), ReadLine("Username: "), ReadLine("Passwort: "), express);
 
             if (pfad == PFAD_DEFAULT)
             {
@@ -84,6 +89,7 @@ namespace StudIPDownloader
                 sw.WriteLine("Cookie|" + SessionCookie);
                 sw.WriteLine("Pfad|" + pfad);
                 sw.WriteLine("StudIP|" + StudIpURL);
+                sw.WriteLine("express|" + express.ToString());
             }
         }
 

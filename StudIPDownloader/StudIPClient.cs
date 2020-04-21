@@ -12,33 +12,39 @@ namespace StudIPDownloader
     {
         string _user = null;
         string _password = null;
+        bool _express = false;
+
         WebClient wc;
         CookieContainer cc;
         string BASE = "https://elearning.uni-oldenburg.de/";
         string API_BASE = "https://elearning.uni-oldenburg.de/api.php/";
 
-        public StudIPClient(Cookie cookie)
+        public StudIPClient(Cookie cookie, bool express)
         {
             setWebClient(cookie);
+            this._express = express;
         }
-        public StudIPClient(string user, string password)
+        public StudIPClient(string user, string password, bool express)
         {
             setWebClient();
             this._user = user;
             this._password = password;
+            this._express = express;
             login();
         }
-        public StudIPClient(string BASE, Cookie cookie)
+        public StudIPClient(string BASE, Cookie cookie, bool express)
         {
             setBase(BASE);
             setWebClient(cookie);
+            this._express = express;
         }
-        public StudIPClient(string BASE, string user, string password)
+        public StudIPClient(string BASE, string user, string password, bool express)
         {
             setBase(BASE);
             setWebClient(null);
             this._user = user;
             this._password = password;
+            this._express = express;
             login();
         }
 
@@ -134,14 +140,18 @@ namespace StudIPDownloader
             return (string)user.SelectToken("user_id");
         }
 
-        Dictionary<string, string> SemesterDict = new Dictionary<string, string>();
-        public string getSemesterToken(string semesterID)
+        Dictionary<string, Semester> SemesterDict = new Dictionary<string, Semester>();
+        public Semester getSemesterToken(string semesterID)
         {
             if (!SemesterDict.ContainsKey(semesterID)) //Mit Dictionary API Requests sparen  
             {
                 string api = getAPI("semester/" + semesterID);
                 JToken semester = JObject.Parse(api);
-                SemesterDict[semesterID] = (string)semester.SelectToken("token");
+
+                Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+
+                SemesterDict[semesterID] = new Semester((string)semester.SelectToken("id"), (string)semester.SelectToken("token"), 
+                    ((int)semester.SelectToken("begin") < unixTimestamp && (int)semester.SelectToken("end") > unixTimestamp)); // Prüfung, ob Eintrag im aktuellen Semester ist.
             }
             return SemesterDict[semesterID];
 
@@ -149,25 +159,30 @@ namespace StudIPDownloader
 
         public void syncFiles(string localPath)
         {
-            //@TODO: Add Pagination
-            dynamic courses = JsonConvert.DeserializeObject<dynamic>(getAPI("user/" + getUserID() + "/courses"));
+            //@TODO: Add Pagination mit limit=1000 nicht mehr nötig.
+            dynamic courses = JsonConvert.DeserializeObject<dynamic>(getAPI("user/" + getUserID() + "/courses?limit=1000"));
             foreach (var course in courses.collection)
             {
                 Console.WriteLine(course.First.title + " (" + course.First.course_id + ")");
-                string semester = "Allgemein";
+                string semesterName = "Allgemein";
+                Semester semester = new Semester(false);
                 if (course.First.start_semester != null)
                 {
                     string semesterID = course.First.start_semester;
-                    semester = ReplaceInvalidChars(getSemesterToken(semesterID.ToString().Replace("/api.php/semester/", "")));
+                    semester = getSemesterToken(semesterID.ToString().Replace("/api.php/semester/", ""));
+                    semesterName = ReplaceInvalidChars(semester.name);
                 }
 
-                if (!Directory.Exists(localPath + Path.DirectorySeparatorChar + semester))
+                if (!_express || (_express && semester.active ))
                 {
-                    Directory.CreateDirectory(localPath + Path.DirectorySeparatorChar + semester);
-                }
+                    if (!Directory.Exists(localPath + Path.DirectorySeparatorChar + semesterName))
+                    {
+                        Directory.CreateDirectory(localPath + Path.DirectorySeparatorChar + semesterName);
+                    }
 
-                dynamic folders = JsonConvert.DeserializeObject<dynamic>(getAPI("course/" + course.First.course_id + "/top_folder"));
-                syncSubfolder(localPath + Path.DirectorySeparatorChar + semester, (string)folders.SelectToken("id"), Path.DirectorySeparatorChar + RemoveInvalidChars((string)course.First.title));
+                    dynamic folders = JsonConvert.DeserializeObject<dynamic>(getAPI("course/" + course.First.course_id + "/top_folder"));
+                    syncSubfolder(localPath + Path.DirectorySeparatorChar + semesterName, (string)folders.SelectToken("id"), Path.DirectorySeparatorChar + RemoveInvalidChars((string)course.First.title));
+                }
             }
         }
 
