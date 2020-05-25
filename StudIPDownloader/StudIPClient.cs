@@ -78,6 +78,7 @@ namespace StudIPDownloader
                     string login = wc.DownloadString(BASE); // Notwendige Cookies setzen (Seminar_Session)
 
                     wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded; charset=UTF-8";
+                    wc.Headers[HttpRequestHeader.Referer] = BASE + "index.php?logout=true&set_language=";
                     wc.Encoding = Encoding.UTF8;
                     string req = "login_ticket=" + WebUtility.UrlEncode(GetBetween(login, "login_ticket\" value=\"", "\">")) +
                         "&security_token=" + WebUtility.UrlEncode(GetBetween(login, "security_token\" value=\"", "\">")) +
@@ -170,7 +171,9 @@ namespace StudIPDownloader
                 {
                     string semesterID = course.First.start_semester;
                     semester = getSemesterToken(semesterID.ToString().Replace("/api.php/semester/", ""));
-                    semesterName = ReplaceInvalidChars(semester.name);
+                    if(semester.name != null) { 
+                        semesterName = ReplaceInvalidChars(semester.name);
+                    }
                 }
 
                 if (!_express || (_express && semester.active ))
