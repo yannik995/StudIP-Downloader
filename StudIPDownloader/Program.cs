@@ -12,6 +12,8 @@ namespace StudIPDownloader
         static string pfad = PFAD_DEFAULT;
         static string SessionCookie = "";
         static string StudIpURL = "";
+        static string ignore = "";
+        static bool downloadOverwrite = false;
         static bool express = false;
         static void Main(string[] args)
         {
@@ -39,6 +41,14 @@ namespace StudIPDownloader
                         {
                             express = bool.Parse(line.Split('|')[1]);
                         }
+                        if (line.StartsWith("ignore|"))
+                        {
+                            ignore = line.Split('|')[1];
+                        }
+                        if (line.StartsWith("downloadOverwrite|"))
+                        {
+                            downloadOverwrite = bool.Parse(line.Split('|')[1]);
+                        }
                     }
                 }
             }
@@ -47,7 +57,7 @@ namespace StudIPDownloader
                 Console.WriteLine("config.ini konnte nicht gelesen werden: " + ex.Message);
             }
 
-            StudIPClient client = new StudIPClient(getStudIP(), getCookie(), express);
+            StudIPClient client = new StudIPClient(getStudIP(), getCookie(), express, ignore, downloadOverwrite);
 
             //StudIPClient client = new StudIPClient(getStudIP(), ReadLine("Username: "), ReadLine("Passwort: "), express);
 
@@ -90,6 +100,8 @@ namespace StudIPDownloader
                 sw.WriteLine("Pfad|" + pfad);
                 sw.WriteLine("StudIP|" + StudIpURL);
                 sw.WriteLine("express|" + express.ToString());
+                sw.WriteLine("ignore|" + ignore);
+                sw.WriteLine("downloadOverwrite|" + downloadOverwrite);
             }
         }
 

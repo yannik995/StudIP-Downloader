@@ -5,6 +5,7 @@ using System.Net;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.IO;
+using System.Linq;
 
 namespace StudIPDownloader
 {
@@ -13,38 +14,56 @@ namespace StudIPDownloader
         string _user = null;
         string _password = null;
         bool _express = false;
+        bool _downloadOverwrite = false;
+        string[] _ignore;
 
         WebClient wc;
         CookieContainer cc;
         string BASE = "https://elearning.uni-oldenburg.de/";
         string API_BASE = "https://elearning.uni-oldenburg.de/api.php/";
 
-        public StudIPClient(Cookie cookie, bool express)
+        public StudIPClient(Cookie cookie, bool express, string ignore)
         {
             setWebClient(cookie);
             this._express = express;
+            this._ignore = ignore.Split(",");
         }
-        public StudIPClient(string user, string password, bool express)
+        public StudIPClient(string user, string password, bool express, string ignore)
         {
             setWebClient();
             this._user = user;
             this._password = password;
             this._express = express;
+            this._ignore = ignore.Split(",");
             login();
         }
-        public StudIPClient(string BASE, Cookie cookie, bool express)
+        public StudIPClient(string BASE, Cookie cookie, bool express, string ignore, bool downloadOverwrite)
         {
             setBase(BASE);
             setWebClient(cookie);
             this._express = express;
+            this._ignore = ignore.Split(",");
+            this._downloadOverwrite = downloadOverwrite;
         }
-        public StudIPClient(string BASE, string user, string password, bool express)
+        public StudIPClient(string BASE, string user, string password, bool express, string ignore)
         {
             setBase(BASE);
             setWebClient(null);
             this._user = user;
             this._password = password;
             this._express = express;
+            this._ignore = ignore.Split(",");
+            login();
+        }
+        public StudIPClient(string BASE, string user, string password, bool express, string ignore, bool downloadOverwrite)
+        {
+            setBase(BASE);
+            setWebClient(null);
+            this._user = user;
+            this._password = password;
+            this._express = express;
+            this._ignore = ignore.Split(",");
+            this._downloadOverwrite = downloadOverwrite;
             login();
         }
 
@@ -164,7 +183,7 @@ namespace StudIPDownloader
             dynamic courses = JsonConvert.DeserializeObject<dynamic>(getAPI("user/" + getUserID() + "/courses?limit=1000"));
             foreach (var course in courses.collection)
             {
-                Console.Write(course.First.title + " (" + course.First.course_id + ")");
+                Console.Write(course.First.title); // + " (" + course.First.course_id + ")"
                 string semesterName = "Allgemein";
                 Semester semester = new Semester(false);
                 if (course.First.start_semester != null)
@@ -186,7 +205,7 @@ namespace StudIPDownloader
                     }
 
                     dynamic folders = JsonConvert.DeserializeObject<dynamic>(getAPI("course/" + course.First.course_id + "/top_folder"));
-                    syncSubfolder(localPath + Path.DirectorySeparatorChar + semesterName, (string)folders.SelectToken("id"), Path.DirectorySeparatorChar + RemoveInvalidChars((string)course.First.title));
+                    syncSubfolder(localPath + Path.DirectorySeparatorChar + semesterName, (string)folders.SelectToken("id"), Path.DirectorySeparatorChar + RemoveInvalidChars((string)course.First.title), 0);
                 }
                 else
                 {
@@ -196,43 +215,64 @@ namespace StudIPDownloader
             }
         }
 
-        void syncSubfolder(string localPath, string parent, string path = "")
+        void syncSubfolder(string localPath, string parent, string path = "", int ebene = 1)
         {
             if(!Directory.Exists(localPath + path))
             {
                 Directory.CreateDirectory(localPath + path);
             }
-
+            ebene++;
             try
             {
 
                 dynamic folders = JsonConvert.DeserializeObject<dynamic>(getAPI("folder/" + parent));
 
-                foreach (var topFolder in folders.subfolders)
+                if (folders.subfolders != null)
                 {
-                    string folder_id = (string)topFolder.SelectToken("id");
-                    string name = (string)topFolder.SelectToken("name");
-                    string folder_type = (string)topFolder.SelectToken("folder_type");
-
-                    if (!String.IsNullOrEmpty(name))
+                    foreach (var topFolder in folders.subfolders)
                     {
-                        name = RemoveInvalidChars(name);
-                        Console.WriteLine("->" + name + " (" + folder_id + ")");
-                        syncSubfolder(localPath,folder_id, path + Path.DirectorySeparatorChar + name);
+                        string folder_id = (string)topFolder.SelectToken("id");
+                        string name = (string)topFolder.SelectToken("name");
+                        string folder_type = (string)topFolder.SelectToken("folder_type");
+
+                        if (!String.IsNullOrEmpty(name) && !_ignore.Contains(name))
+                        {
+                            name = RemoveInvalidChars(name);
+                            Console.WriteLine(new string(' ', ebene) + "->" + name); //+ " (" + folder_id + ")"
+                            syncSubfolder(localPath, folder_id, path + Path.DirectorySeparatorChar + name, ebene);
+                        }
+                        else if (!String.IsNullOrEmpty(name))
+                        {
+                            Console.WriteLine(new string(' ', ebene) + "->" + name + "-> Skip"); //"(" + folder_id + ")" +
+                        }
                     }
                 }
-                foreach (var files in folders.file_refs)
-                {
-                    string file_id = (string)files.SelectToken("id");
-                    string name = (string)files.SelectToken("name");
-                    int size = (int)files.SelectToken("size");
-                    int chdate = (int)files.SelectToken("chdate");
-                    bool is_downloadable = (bool)files.SelectToken("is_downloadable");
 
-                    if (is_downloadable && !String.IsNullOrEmpty(name))
+                if(folders.file_refs != null) { 
+                    foreach (var files in folders.file_refs)
                     {
-                        name = RemoveInvalidChars(name);
-                        downloadFile(localPath, path, new Datei(file_id, name, size, chdate));
+                        string file_id = (string)files.SelectToken("id");
+                        string name = (string)files.SelectToken("name");
+                        int size = (int)files.SelectToken("size");
+                        int chdate = (int)files.SelectToken("chdate");
+
+                        bool is_downloadable = _downloadOverwrite;
+                        try
+                        {
+                            is_downloadable = (bool)files.SelectToken("is_downloadable");
+                        }
+                        catch (Exception ex)
+                        {
+                            if (!_downloadOverwrite) { 
+                                Console.WriteLine("Warnung: " + name + "(" + file_id + ") nicht downloadbar (ggf. downloadOverwrite|True in config Datei verwenden)\r\n");
+                            }
+                        }
+
+                        if ((is_downloadable || _downloadOverwrite) && !String.IsNullOrEmpty(name))
+                        {
+                            name = RemoveInvalidChars(name);
+                            downloadFile(localPath, path, new Datei(file_id, name, size, chdate), ebene);
+                        }
                     }
                 }
             }
@@ -242,13 +282,13 @@ namespace StudIPDownloader
             }
         }
 
-        void downloadFile(string localPath, string path, Datei datei)
+        void downloadFile(string localPath, string path, Datei datei, int ebene = 1)
         {
             string pfad = localPath + path + Path.DirectorySeparatorChar + datei.filename;
 
             if(!checkFile(pfad, datei))
             {
-                Console.WriteLine(path + Path.DirectorySeparatorChar + datei.filename + " (" + datei.id + ")");
+                Console.WriteLine(new string(' ', ebene) + path + Path.DirectorySeparatorChar + datei.filename ); // + " (" + datei.id + ")"
                 try
                 {
                     
