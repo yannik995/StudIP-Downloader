@@ -11,10 +11,13 @@ namespace StudIPDownloader
         private const string PFAD_DEFAULT = @"C:\StudIP-Sync\";
         static string pfad = PFAD_DEFAULT;
         static string SessionCookie = "";
+        static string username = "";
+        static string password = "";
         static string StudIpURL = "";
         static string ignore = "";
         static bool downloadOverwrite = false;
         static bool express = false;
+        static bool savePass = false;
         static void Main(string[] args)
         {
 
@@ -28,6 +31,14 @@ namespace StudIPDownloader
                         if (line.StartsWith("Cookie|"))
                         {
                             SessionCookie = line.Split('|')[1];
+                        }
+                        if (line.StartsWith("User|"))
+                        {
+                            username = line.Split('|')[1];
+                        }
+                        if (line.StartsWith("Pass|"))
+                        {
+                            password = line.Split('|')[1];
                         }
                         if (line.StartsWith("Pfad|"))
                         {
@@ -49,6 +60,10 @@ namespace StudIPDownloader
                         {
                             downloadOverwrite = bool.Parse(line.Split('|')[1]);
                         }
+                        if (line.StartsWith("savePass|"))
+                        {
+                            savePass = bool.Parse(line.Split('|')[1]);
+                        }
                     }
                 }
             }
@@ -57,7 +72,32 @@ namespace StudIPDownloader
                 Console.WriteLine("config.ini konnte nicht gelesen werden: " + ex.Message);
             }
 
-            StudIPClient client = new StudIPClient(getStudIP(), getCookie(), express, ignore, downloadOverwrite);
+            StudIPClient client = null;
+            string[] arguments = Environment.GetCommandLineArgs();
+
+            if (arguments.Length == 1) //Cookie Login Interactive
+            {
+                if (username != "Beispieluser" && username != "" && password != "")
+                {
+                    client = new StudIPClient(getStudIP(), username, password, express, ignore, downloadOverwrite);
+                }
+                else
+                {
+                    client = new StudIPClient(getStudIP(), getCookie(), express, ignore, downloadOverwrite);
+                }
+            }
+            else if (arguments.Length == 2) //Cookie Login with Parameter
+            {
+                client = new StudIPClient(getStudIP(), new Cookie("Seminar_Session", arguments[1], "/", new Uri(StudIpURL).Host), express, ignore, downloadOverwrite);
+            }
+            else if (arguments.Length >= 3) //User Pass Login
+            {
+                client = new StudIPClient(getStudIP(), arguments[1], arguments[2], express, ignore, downloadOverwrite);
+                if (arguments.Length > 3)
+                {
+                    bool.TryParse(arguments[3], out savePass);
+                }
+            }
 
             //StudIPClient client = new StudIPClient(getStudIP(), ReadLine("Username: "), ReadLine("Passwort: "), express);
 
@@ -102,6 +142,12 @@ namespace StudIPDownloader
                 sw.WriteLine("express|" + express.ToString());
                 sw.WriteLine("ignore|" + ignore);
                 sw.WriteLine("downloadOverwrite|" + downloadOverwrite);
+                sw.WriteLine("User|" + username);
+                if (savePass)
+                {
+                    sw.WriteLine("Pass|" + password);
+                }
+                sw.WriteLine("savePass|" + savePass);
             }
         }
 

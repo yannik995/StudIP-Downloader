@@ -81,50 +81,23 @@ namespace StudIPDownloader
                 cc.Add(cookie);
             }
             wc = new WebClientEx(cc);
+            wc.Headers[HttpRequestHeader.UserAgent] = "StudIP-Downloader"; //Ohne User Agent funktioniert der Login nicht
             wc.DownloadProgressChanged += new DownloadProgressChangedEventHandler(DownloadProgressCallback);
         }
 
         public bool login()
         {
-            wc.DownloadString(BASE); // Notwendige Cookies setzen (Seminar_Session)
+            //wc.DownloadString(BASE); // Notwendige Cookies setzen (Seminar_Session)
+            string auth = Convert.ToBase64String(Encoding.ASCII.GetBytes(this._user + ":" + this._password));
+            
+            //wc.Headers[HttpRequestHeader.Accept] = "*/*";
+            wc.Headers[HttpRequestHeader.Authorization] = string.Format("Basic {0}", auth);
+
             string userSeite = wc.DownloadString(API_BASE + "discovery");
 
             if (userSeite.StartsWith("<!DOCTYPE html>"))
             {
-                //Login nötig
-                if(this._user != null && this._password != null) {
-
-                    string login = wc.DownloadString(BASE); // Notwendige Cookies setzen (Seminar_Session)
-
-                    wc.Headers[HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded; charset=UTF-8";
-                    wc.Headers[HttpRequestHeader.Referer] = BASE + "index.php?logout=true&set_language=";
-                    wc.Encoding = Encoding.UTF8;
-                    string req = "login_ticket=" + WebUtility.UrlEncode(GetBetween(login, "login_ticket\" value=\"", "\">")) +
-                        "&security_token=" + WebUtility.UrlEncode(GetBetween(login, "security_token\" value=\"", "\">")) +
-                        "&loginname=" + _user +
-                        "&password=" + _password +
-                        "&source=" + WebUtility.UrlEncode(GetBetween(login, "source\" value=\"", "\">")) + 
-                        "&target=" + WebUtility.UrlEncode(GetBetween(login, "target\" value=\"", "\">"));
-
-
-                    string HtmlResult = wc.UploadString(BASE + "plugins.php/uollayoutplugin/login?cancel_login=1",
-                       req);
-
-                    Console.WriteLine(HtmlResult);
-
-                    userSeite = wc.DownloadString(API_BASE + "discovery");
-                    Console.WriteLine();
-                    Console.WriteLine(userSeite);
-                    if (userSeite.StartsWith("<!DOCTYPE html>"))
-                    {
-                        Console.WriteLine("Login fehlerhaft");
-                        throw ( new WebException("Unauthorized"));
-                    }
-                }
-                else
-                {
-                    throw (new WebException("Unauthorized"));
-                }
+                throw (new WebException("Unauthorized"));
             }
             //Bereits eingeloggt
             return true;
