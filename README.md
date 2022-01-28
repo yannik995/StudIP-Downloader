@@ -10,6 +10,7 @@ https://github.com/yannik995/StudIP-Downloader/releases
 2. StudIPDownloader.exe starten, StudIP URL eintragen z.B.: https://elearning.uni-oldenburg.de/
 3. Wert des Seminar_Session Cookie aus dem Browser eintragen. 
 (Einloggen und Cookies z.B. mit EditThisCookie anzeigen lassen:
+
 ![Cookie Bild](./cookie.png))
  
 Alternativ kann auch Benutzernamen und Passwort als Parameter hinter der Anwendung eingetragen werden und optional ein zusätzliches True, um die Daten zu speichern:
