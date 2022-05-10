@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Net;
@@ -161,8 +161,8 @@ namespace StudIPDownloader
                 Semester semester = new Semester(false);
                 if (course.First.start_semester != null)
                 {
-                    string semesterID = course.First.start_semester;
-                    semester = getSemesterToken(semesterID.ToString().Replace("/api.php/semester/", ""));
+                    string semesterID = course.First.start_semester.ToString();
+                    semester = getSemesterToken(semesterID[(semesterID.IndexOf("/api.php/semester/") + "/api.php/semester/".Length)..]);
                     if(semester.name != null) { 
                         semesterName = ReplaceInvalidChars(semester.name);
                     }
