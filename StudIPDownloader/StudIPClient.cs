@@ -161,8 +161,8 @@ namespace StudIPDownloader
                 Semester semester = new Semester(false);
                 if (course.First.start_semester != null)
                 {
-                    string semesterID = course.First.start_semester;
-                    semester = getSemesterToken(semesterID.ToString().Replace("/api.php/semester/", ""));
+                    string semesterID = course.First.start_semester.ToString();
+                    semester = getSemesterToken(semesterID[(semesterID.IndexOf("/api.php/semester/") + "/api.php/semester/".Length)..]);
                     if(semester.name != null) { 
                         semesterName = ReplaceInvalidChars(semester.name);
                     }
@@ -234,7 +234,7 @@ namespace StudIPDownloader
                         {
                             is_downloadable = (bool)files.SelectToken("is_downloadable");
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             if (!_downloadOverwrite) { 
                                 Console.WriteLine("Warnung: " + name + "(" + file_id + ") nicht downloadbar (ggf. downloadOverwrite|True in config Datei verwenden)\r\n");
@@ -274,7 +274,7 @@ namespace StudIPDownloader
                         //API wirft Fehler bei Dateien > 500MB, nutze dann WEB UI 
                         wc.DownloadFile(BASE + "sendfile.php?force_download=1&type=0&file_id=" + datei.id , pfad);
                     }
-                    catch (Exception ex1)
+                    catch (Exception)
                     {
                         Console.WriteLine("Fehler beim Downloaden der Datei " + datei.filename + "(" + datei.id + ")\r\n" + ex.Message);
                     }
