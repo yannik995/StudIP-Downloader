@@ -9,17 +9,23 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 3.1.101
     - name: Install dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      shell: pwsh
+      run: ./publish.ps1
+    - name: Upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: StudIPDownloader
+        path: D:/a/StudIP-Downloader/StudIP-Downloader/StudIPDownloader/bin/Debug/**/publish/*
     - name: Test
       run: dotnet test --no-restore --verbosity normal
