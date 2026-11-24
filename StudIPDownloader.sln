@@ -5,6 +5,10 @@ VisualStudioVersion = 16.0.29709.97
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudIPDownloader", "StudIPDownloader\StudIPDownloader.csproj", "{5EF55377-2919-43CB-9FF6-BCF7C4668C10}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E82F4500-CFC6-4E70-9E0F-17C52352F17A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudIPDownloader.Tests", "tests\StudIPDownloader.Tests\StudIPDownloader.Tests.csproj", "{162B8BFB-D053-4B51-BA4B-2E04B0D3A172}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,11 +19,18 @@ Global
 		{5EF55377-2919-43CB-9FF6-BCF7C4668C10}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5EF55377-2919-43CB-9FF6-BCF7C4668C10}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5EF55377-2919-43CB-9FF6-BCF7C4668C10}.Release|Any CPU.Build.0 = Release|Any CPU
+		{162B8BFB-D053-4B51-BA4B-2E04B0D3A172}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{162B8BFB-D053-4B51-BA4B-2E04B0D3A172}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{162B8BFB-D053-4B51-BA4B-2E04B0D3A172}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{162B8BFB-D053-4B51-BA4B-2E04B0D3A172}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CFADC3FF-70D0-4548-BDA5-23FAF50ED904}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{162B8BFB-D053-4B51-BA4B-2E04B0D3A172} = {E82F4500-CFC6-4E70-9E0F-17C52352F17A}
 	EndGlobalSection
 EndGlobal

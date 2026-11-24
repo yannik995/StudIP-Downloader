@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+tests/
+.git/
+.github/
+*.zip
+config.ini

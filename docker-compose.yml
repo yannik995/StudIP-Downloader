@@ -1,0 +1,13 @@
+services:
+  studip-downloader:
+    image: ghcr.io/yannik995/studip-downloader:latest
+    # build: .
+    restart: unless-stopped
+    # Benutzer, dem die gemounteten Ordner gehören (z.B. Unraid: "99:100")
+    user: "1000:1000"
+    environment:
+      SYNC_INTERVAL: 6h
+      TZ: Europe/Berlin
+    volumes:
+      - ./config:/config
+      - ./studium:/data
