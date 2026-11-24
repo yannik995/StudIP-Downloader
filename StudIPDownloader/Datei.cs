@@ -1,21 +1,20 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace StudIPDownloader
 {
     class Datei
     {
-        public string id;
-        public string filename;
-        public int size;
-        public int chdate;
-        public Datei(string id, string filename, int size, int chdate)
+        public string Id;
+        public string Filename;
+        public long Size;
+        public DateTimeOffset? ChangeDate;
+
+        public Datei(string id, string filename, long size, DateTimeOffset? changeDate)
         {
-            this.id = id;
-            this.filename = filename;
-            this.size = size;
-            this.chdate = chdate;
+            Id = id;
+            Filename = filename;
+            Size = size;
+            ChangeDate = changeDate;
         }
     }
 }
