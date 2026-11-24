@@ -1,178 +1,179 @@
-﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
-using System.IO;
-using System.Net;
+﻿using System;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace StudIPDownloader
 {
     class Program
     {
-        private const string PFAD_DEFAULT = @"C:\StudIP-Sync\";
-        static string pfad = PFAD_DEFAULT;
-        static string SessionCookie = "";
-        static string username = "";
-        static string password = "";
-        static string StudIpURL = "";
-        static string ignore = "";
-        static bool downloadOverwrite = false;
-        static bool express = false;
-        static bool savePass = false;
-        static void Main(string[] args)
-        {
+        const string ConfigFile = "config.ini";
+        const string CookieHint = "Studip_Session Cookie aus dem Browser (bis Stud.IP 5.x: Seminar_Session): ";
 
+        static async Task<int> Main(string[] args)
+        {
+            Config config = Config.Load(ConfigFile);
+
+            string cookieArgument = null;
+            string userArgument = null;
+            string passArgument = null;
+            if (args.Length == 1) // Cookie Login mit Parameter
+            {
+                cookieArgument = args[0];
+            }
+            else if (args.Length >= 2) // User/Pass Login mit Parameter
+            {
+                userArgument = args[0];
+                passArgument = args[1];
+                if (args.Length > 2 && bool.TryParse(args[2], out bool savePass))
+                {
+                    config.SavePass = savePass;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(config.StudIP))
+            {
+                config.StudIP = ReadLine("StudIP URL (https://elearning.uni-oldenburg.de/): ");
+            }
+
+            int exitCode = 0;
             try
             {
-                using (StreamReader sr = new StreamReader("config.ini"))
+                SyncOptions options = new SyncOptions
                 {
-                    string line;
-                    while ((line = sr.ReadLine()) != null)
-                    {
-                        if (line.StartsWith("Cookie|"))
-                        {
-                            SessionCookie = line.Split('|')[1];
-                        }
-                        if (line.StartsWith("User|"))
-                        {
-                            username = line.Split('|')[1];
-                        }
-                        if (line.StartsWith("Pass|"))
-                        {
-                            password = line.Split('|')[1];
-                        }
-                        if (line.StartsWith("Pfad|"))
-                        {
-                            pfad = line.Split('|')[1];
-                        }
-                        if (line.StartsWith("StudIP|"))
-                        {
-                            StudIpURL = line.Split('|')[1];
-                        }
-                        if (line.StartsWith("express|"))
-                        {
-                            express = bool.Parse(line.Split('|')[1]);
-                        }
-                        if (line.StartsWith("ignore|"))
-                        {
-                            ignore = line.Split('|')[1];
-                        }
-                        if (line.StartsWith("downloadOverwrite|"))
-                        {
-                            downloadOverwrite = bool.Parse(line.Split('|')[1]);
-                        }
-                        if (line.StartsWith("savePass|"))
-                        {
-                            savePass = bool.Parse(line.Split('|')[1]);
-                        }
-                    }
-                }
-            }
-            catch (FileNotFoundException ex)
-            {
-                Console.WriteLine("config.ini konnte nicht gelesen werden: " + ex.Message);
-            }
+                    Express = config.Express,
+                    DownloadOverwrite = config.DownloadOverwrite,
+                    IgnoreFolders = SyncOptions.SplitList(config.Ignore),
+                    IgnoreCourses = SyncOptions.SplitList(config.IgnoreCourses),
+                    OnlyCourses = SyncOptions.SplitList(config.OnlyCourses),
+                };
 
-            StudIPClient client = null;
-            string[] arguments = Environment.GetCommandLineArgs();
+                using StudIPClient client = new StudIPClient(config.StudIP, options);
+                config.StudIP = StudIPClient.NormalizeBaseUrl(config.StudIP).ToString();
 
-            if (arguments.Length == 1) //Cookie Login Interactive
-            {
-                if (username != "Beispieluser" && username != "" && password != "")
+                if (!await Authenticate(client, config, cookieArgument, userArgument, passArgument))
                 {
-                    client = new StudIPClient(getStudIP(), username, password, express, ignore, downloadOverwrite);
+                    Console.WriteLine("Login fehlgeschlagen.");
+                    exitCode = 1;
                 }
                 else
                 {
-                    client = new StudIPClient(getStudIP(), getCookie(), express, ignore, downloadOverwrite);
-                }
-            }
-            else if (arguments.Length == 2) //Cookie Login with Parameter
-            {
-                client = new StudIPClient(getStudIP(), new Cookie("Seminar_Session", arguments[1], "/", new Uri(StudIpURL).Host), express, ignore, downloadOverwrite);
-            }
-            else if (arguments.Length >= 3) //User Pass Login
-            {
-                client = new StudIPClient(getStudIP(), arguments[1], arguments[2], express, ignore, downloadOverwrite);
-                if (arguments.Length > 3)
-                {
-                    bool.TryParse(arguments[3], out savePass);
-                }
-            }
+                    if (string.IsNullOrWhiteSpace(config.Pfad))
+                    {
+                        string pfad = ReadLine("Lokaler Pfad (" + Config.DefaultPath + "): ");
+                        config.Pfad = string.IsNullOrWhiteSpace(pfad) ? Config.DefaultPath : pfad.Trim();
+                    }
 
-            //StudIPClient client = new StudIPClient(getStudIP(), ReadLine("Username: "), ReadLine("Passwort: "), express);
-
-            if (pfad == PFAD_DEFAULT)
-            {
-                pfad = ReadLine("Lokaler Pfad (" + pfad + "): ");
-                if (pfad == "")
-                {
-                    pfad = PFAD_DEFAULT;
-                }
-            }
-
-            try 
-            { 
-                client.syncFiles(pfad);
-            }
-            catch (WebException webException)
-            {
-                if (webException.Message.Contains("Unauthorized"))
-                {
-                    client.setWebClient(getCookie(true));
                     try
                     {
-                        client.syncFiles(pfad);
+                        await client.SyncFiles(config.Pfad);
                     }
-                    catch (WebException ex)
+                    catch (UnauthorizedException)
                     {
-                        Console.WriteLine("Fehler: " + ex.Message);
+                        // Session während des Syncs abgelaufen -> neuen Cookie abfragen und erneut versuchen
+                        Console.WriteLine("Session abgelaufen.");
+                        if (await LoginWithCookie(client, config, null, true))
+                        {
+                            await client.SyncFiles(config.Pfad);
+                        }
+                        else
+                        {
+                            exitCode = 1;
+                        }
                     }
                 }
-                else
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine("Verbindungsfehler: " + FullMessage(ex));
+                exitCode = 1;
+            }
+            catch (StudIPException ex)
+            {
+                Console.WriteLine("Fehler: " + ex.Message);
+                exitCode = 1;
+            }
+
+            config.Save(ConfigFile);
+            return exitCode;
+        }
+
+        static async Task<bool> Authenticate(StudIPClient client, Config config, string cookieArgument, string userArgument, string passArgument)
+        {
+            if (userArgument != null)
+            {
+                config.User = userArgument;
+                config.Pass = passArgument;
+            }
+
+            // Benutzername/Passwort, wenn vorhanden und kein Cookie als Parameter übergeben wurde
+            if (cookieArgument == null && (userArgument != null || config.HasCredentials()))
+            {
+                client.UseBasicAuth(config.User, config.Pass);
+                if (await client.IsAuthenticated())
                 {
-                    Console.WriteLine("Fehler: " + webException.Message);
+                    return true;
                 }
-            }
 
-            using (StreamWriter sw = new StreamWriter("config.ini", false))
-            {
-                sw.WriteLine("Cookie|" + SessionCookie);
-                sw.WriteLine("Pfad|" + pfad);
-                sw.WriteLine("StudIP|" + StudIpURL);
-                sw.WriteLine("express|" + express.ToString());
-                sw.WriteLine("ignore|" + ignore);
-                sw.WriteLine("downloadOverwrite|" + downloadOverwrite);
-                sw.WriteLine("User|" + username);
-                if (savePass)
+                Console.WriteLine("HTTP Basic Auth nicht erfolgreich, versuche Login über das Login-Formular...");
+                if (await client.TryFormLogin(config.User, config.Pass))
                 {
-                    sw.WriteLine("Pass|" + password);
+                    return true;
                 }
-                sw.WriteLine("savePass|" + savePass);
+                Console.WriteLine("Login mit Benutzername/Passwort fehlgeschlagen, verwende Session Cookie.");
             }
+
+            return await LoginWithCookie(client, config, cookieArgument, false);
         }
 
-        static Cookie getCookie(bool forceNew = false)
+        static async Task<bool> LoginWithCookie(StudIPClient client, Config config, string cookieArgument, bool forceNew)
         {
-            if (SessionCookie == "" || forceNew)
+            if (cookieArgument != null)
             {
-                SessionCookie = ReadLine("Seminar_Session Cookie aus dem Browser: ");
+                config.Cookie = cookieArgument;
             }
-            return new Cookie("Seminar_Session", SessionCookie, "/", new Uri(StudIpURL).Host);
-        }
 
-        static string getStudIP()
-        {
-            if (StudIpURL == "")
+            if (!forceNew && !string.IsNullOrWhiteSpace(config.Cookie))
             {
-                StudIpURL = ReadLine("StudIP URL (https://elearning.uni-oldenburg.de/): ");
+                client.UseSessionCookie(config.Cookie);
+                if (await client.IsAuthenticated())
+                {
+                    return true;
+                }
+                Console.WriteLine("Session Cookie ungültig oder abgelaufen.");
             }
-            return StudIpURL;
+
+            for (int i = 0; i < 3; i++)
+            {
+                string cookie = ReadLine(CookieHint);
+                if (string.IsNullOrWhiteSpace(cookie))
+                {
+                    return false;
+                }
+                config.Cookie = cookie.Trim();
+                client.UseSessionCookie(config.Cookie);
+                if (await client.IsAuthenticated())
+                {
+                    return true;
+                }
+                Console.WriteLine("Session Cookie ungültig oder abgelaufen.");
+            }
+            return false;
         }
 
-        static string ReadLine(string outp)
+        static string FullMessage(Exception ex)
         {
-            Console.WriteLine(outp);
-            return Console.ReadLine();
+            string message = ex.Message;
+            for (Exception inner = ex.InnerException; inner != null; inner = inner.InnerException)
+            {
+                message += " -> " + inner.Message;
+            }
+            return message;
+        }
+
+        static string ReadLine(string prompt)
+        {
+            Console.WriteLine(prompt);
+            return Console.ReadLine() ?? "";
         }
     }
 }
