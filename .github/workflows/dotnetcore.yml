@@ -3,6 +3,7 @@ name: .NET Core
 on:
   push:
     branches: [ master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ master ]
 
@@ -10,6 +11,8 @@ jobs:
   build:
 
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
@@ -19,13 +22,62 @@ jobs:
         dotnet-version: 8.0.x
     - name: Install dependencies
       run: dotnet restore
+    - name: Test
+      run: dotnet test --no-restore --verbosity normal
+    - name: Version
+      id: version
+      shell: pwsh
+      run: |
+        $version = ""
+        if ("${{ github.ref_type }}" -eq "tag") { $version = "${{ github.ref_name }}".TrimStart("v") }
+        "version=$version" >> $env:GITHUB_OUTPUT
     - name: Build
       shell: pwsh
-      run: ./publish.ps1
+      run: ./publish.ps1 -Version "${{ steps.version.outputs.version }}"
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: StudIPDownloader
         path: StudIP-Downloader_*.zip
-    - name: Test
-      run: dotnet test --no-restore --verbosity normal
+    - name: Release
+      if: github.ref_type == 'tag'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: StudIP-Downloader_*.zip
+        generate_release_notes: true
+
+  docker:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-qemu-action@v3
+    - uses: docker/setup-buildx-action@v3
+    - name: Login GHCR
+      if: github.event_name == 'push'
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest,enable={{is_default_branch}}
+    - name: Build (und Push bei master/Tag)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name == 'push' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
